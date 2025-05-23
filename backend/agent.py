@@ -4,6 +4,7 @@ import os
 from litellm import completion
 from agents import Agent, Runner, function_tool, set_tracing_disabled
 from agents.extensions.models.litellm_model import LitellmModel
+from rag_storage import analyze_document
 
 # ——————— Utilities ———————
 
@@ -30,9 +31,8 @@ def clean_groq_output(raw_text: str) -> str:
     return cleaned.strip()
 
 
-API_KEY = "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"
+API_KEY = "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"
 MODEL = "groq/qwen-qwq-32b"
-
 
 def parse_agent_output(output: str) -> dict:
     """
@@ -69,7 +69,7 @@ def parse_agent_output(output: str) -> dict:
 
 
 @function_tool
-def retrieve_evidence(query: str) -> list:
+def retrieve_evidence(marketing_statement: str) -> list:
     """
     Stub RAG tool that retrieves company evidence snippets for a given marketing claim.
 
@@ -78,37 +78,36 @@ def retrieve_evidence(query: str) -> list:
     Output:
       list of str: A list of evidence snippets (company report lines). Empty if none.
 
-
     """
     return [
-        "Our company has almost reached a carbon neutral status with an 80% reduction in carbon emissions"
+        analyze_document('Return ALL the evidence most relevant to the statement: ' + marketing_statement, "./asset/2024_annual_report.pdf")
     ]
 
 
 @function_tool
-def retrieve_laws(query: str) -> list:
+def retrieve_laws(marketing_statement: str) -> list:
     """
     Stub tool that retrieves relevant greenwashing laws or regulations for a given claim.
     """
     return [
-        "EU Unfair Commercial Practices Directive prohibits misleading environmental claims.",
-        "French AGEC law requires proof for any eco-label claim.",
+        analyze_document('Return ALL the regulations most relevant to the statement: ' + marketing_statement, "./asset/greenwashing_laws.csv")
     ]
 
 
 @function_tool
-def analyze_greenwashing(marketing_statement: str, evidence: list) -> str:
+def analyze_greenwashing(marketing_statement: str, evidence: list, laws: list) -> str:
     """
-    Analyzes whether the marketing statement is greenwashing based only on the evidence provided in the rag results output.
+    Analyzes whether the marketing statement is greenwashing based only on the evidence and the laws provided in the rag results output.
 
     Input:
       marketing_statement (str): The claim to analyze.
       evidence (list of str): Extracted company information snippets.
+      laws (list of str): Extracted laws and regulations snippets.
     Output:
       str: A JSON-formatted string with fields:
         {
           "is_greenwashing": bool,
-          "explanation": str  # Justification quoting evidence if any
+          "explanation": str  # Justification quoting evidence if any and mention any laws if applicable
         }
 
     Behavior:
@@ -207,13 +206,13 @@ agent = Agent(
     instructions=(
         "You are an AI that detects and corrects greenwashing in marketing statements.\n\n"
         "Use these tools:\n"
-        "- retrieve_evidence(query) to get only factual company sustainability data.\n"
-        "- retrieve_laws(query) to get factual laws and regulations related to greenwashing.\n"
-        "- analyze_greenwashing(statement, evidence) to decide if the claim is greenwashing.\n"
-        "- rewrite_statement(original, analysis_json) to output a corrected version.\n\n"
+        "- retrieve_evidence(marketing_statement) to get only factual company sustainability data related to the marketing statement.\n"
+        "- retrieve_laws(marketing_statement) to get factual laws and regulations related to greenwashing in the marketing statement.\n"
+        "- analyze_greenwashing(marketing_statement, evidence) to decide if the claim is greenwashing.\n"
+        "- rewrite_statement(original_statement, analysis_json) to output a corrected version.\n\n"
         "For every input statement, return exactly:\n\n"
         "1. Retrieved Evidence\n"
-        "   Concise facts from retrieve_evidence(query).\n\n"
+        "   Concise facts from retrieve_evidence(marketing_statement).\n\n"
         "2. Conclusion\n"
         "   **Greenwashing Detected** or **No Greenwashing Detected**.\n\n"
         "3. Justification\n"
@@ -241,12 +240,11 @@ agent = Agent(
 
 async def main():
     # Test with a sample marketing statement
-    statement = "Our operations are 100% carbon neutral"
-    result = await Runner.run(agent, statement)
-    print(parse_agent_output(result.final_output))
+    marketing_statement = "Our operations are 100% carbon neutral"
+    result = await Runner.run(agent, marketing_statement)
+    print(result.final_output)
 
 
 if __name__ == "__main__":
     import asyncio
-
     asyncio.run(main())
