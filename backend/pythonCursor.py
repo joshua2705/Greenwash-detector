@@ -13,11 +13,10 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langgraph.graph import START, StateGraph
 from typing_extensions import List, TypedDict
 
+from langchain_community.document_loaders import PyPDFLoader 
 
 ##Insert KEYS here and delete them before commiting
-###
-###
-###
+
 os.environ["LANGSMITH_PROJECT"] = "my-first-langsmith-run"
 os.environ["LANGSMITH_TRACING"] = "true"
 
@@ -37,7 +36,6 @@ vector_store = FAISS(
 )
 
 
-
 # Create a sample document
 sample_text = """
 Artificial Intelligence (AI) is revolutionizing various industries and sectors. 
@@ -47,6 +45,11 @@ Natural Language Processing (NLP) is another important field within AI that focu
 """
 
 docs = [Document(page_content=sample_text)]
+
+# Replace the sample document section with this:
+# Load a PDF file
+loader = PyPDFLoader("./asset/2024_annual_report.pdf")  # Replace with your actual PDF file path
+docs = loader.load()
 
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 all_splits = text_splitter.split_documents(docs)
